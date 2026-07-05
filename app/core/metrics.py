@@ -47,9 +47,18 @@ remediations_total = Counter(
     ["execution_type", "status"],  # execution_type: AUTO_EXECUTE | MANUAL_APPROVE
 )
 
-# ── System ────────────────────────────────────────────────────────────────────
-aether_info = Info(
-    "aether",
-    "AetherSRE build information.",
+# ── Persistent Stream Lengths (Synced from Redis) ───────────────────────────
+aether_logs_total_persistent = Gauge(
+    "aether_logs_total_persistent",
+    "Absolute persistent count of all log events processed, read from Redis stream length."
 )
-aether_info.info({"version": "1.0.0", "env": "production"})
+
+aether_anomalies_total_persistent = Gauge(
+    "aether_anomalies_total_persistent",
+    "Absolute persistent count of all anomalies flagged, read from Redis stream length."
+)
+
+aether_remediations_total_persistent = Gauge(
+    "aether_remediations_total_persistent",
+    "Absolute persistent count of all self-healing mitigations run, read from Redis stream length."
+)

@@ -145,6 +145,32 @@ async def _baseline_training_monitor(
         await asyncio.sleep(_BASELINE_POLL_INTERVAL_S)
 
 
+async def _metrics_sync_loop(redis_client: RedisStreamClient) -> None:
+    """Background task to sync persistent Gauges directly with Redis stream sizes."""
+    from app.core.metrics import (
+        aether_logs_total_persistent,
+        aether_anomalies_total_persistent,
+        aether_remediations_total_persistent
+    )
+    settings = redis_client._settings
+    
+    while True:
+        try:
+            if redis_client._client:
+                # Query sizes from Redis
+                log_len = await redis_client._client.xlen(settings.redis_stream_name)
+                anomaly_len = await redis_client._client.xlen("incident_alerts_stream")
+                rem_len = await redis_client._client.xlen("remediation_history_stream")
+                
+                # Set Prometheus gauge values
+                aether_logs_total_persistent.set(log_len)
+                aether_anomalies_total_persistent.set(anomaly_len)
+                aether_remediations_total_persistent.set(rem_len)
+        except Exception:
+            pass
+        await asyncio.sleep(5.0)
+
+
 # ---------------------------------------------------------------------------
 # Lifespan — manage resources that span the entire application lifetime
 # ---------------------------------------------------------------------------
@@ -215,6 +241,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.remediation_worker = remediation_worker
     app.state.remediation_worker_task = remediation_worker_task
 
+    # Launch the background metrics sync loop
+    metrics_sync_task: asyncio.Task[None] = asyncio.create_task(
+        _metrics_sync_loop(redis_client),
+        name="metrics-sync-loop",
+    )
+    app.state.metrics_sync_task = metrics_sync_task
+
     logger.info(
         "All startup tasks complete. "
         "API is ready | anomaly_detector_trained=%s store_size=%d",
@@ -232,6 +265,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         training_monitor_task.cancel()
         try:
             await training_monitor_task
+        except asyncio.CancelledError:
+            pass
+
+    # Cancel the metrics sync loop task
+    logger.info("Stopping metrics sync loop background task...")
+    if not metrics_sync_task.done():
+        metrics_sync_task.cancel()
+        try:
+            await metrics_sync_task
         except asyncio.CancelledError:
             pass
 

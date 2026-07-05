@@ -512,8 +512,28 @@
             };
         }
 
-        // Initialize connection
+        async function fetchInitialStats() {
+            try {
+                const response = await fetch('/api/v1/dashboard/stats');
+                if (response.ok) {
+                    const data = await response.json();
+                    counters.logs = data.total_logs;
+                    counters.anomalies = data.total_anomalies;
+                    counters.fixes = data.total_remediations;
+                    counters.pending = data.pending_approvals;
+                    updateMetrics();
+                }
+            } catch (exc) {
+                console.error("Failed to fetch initial stats:", exc);
+            }
+        }
+
+        // Initialize connection and metrics
+        fetchInitialStats();
         connectWebSocket();
+
+        // Keep metrics card numbers synced with Prometheus/Redis stats
+        setInterval(fetchInitialStats, 5000);
 
         // Theme toggle logic
         const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');

@@ -17,7 +17,7 @@
       "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background"},
       "title": "Total Logs Ingested",
       "type": "stat",
-      "targets": [{"expr": "sum(aether_logs_ingested_total)", "legendFormat": "Logs", "refId": "A"}]
+      "targets": [{"expr": "max(aether_logs_total_persistent)", "legendFormat": "Logs", "refId": "A"}]
     },
     {
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
@@ -27,7 +27,7 @@
       "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background"},
       "title": "Total Anomalies Detected",
       "type": "stat",
-      "targets": [{"expr": "sum(aether_anomalies_detected_total)", "legendFormat": "Anomalies", "refId": "A"}]
+      "targets": [{"expr": "max(aether_anomalies_total_persistent)", "legendFormat": "Anomalies", "refId": "A"}]
     },
     {
       "datasource": {"type": "prometheus", "uid": "${datasource}"},

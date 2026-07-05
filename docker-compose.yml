@@ -166,6 +166,33 @@ services:
       - aether_net
 
   # ---------------------------------------------------------------------------
+  # Vector Processor — Anomaly Detection Worker
+  # ---------------------------------------------------------------------------
+  vector-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aether_vector_processor
+    restart: unless-stopped
+    command: python -m app.workers.vector_processor
+    volumes:
+      - ./app:/app/app
+      - ./pyproject.toml:/app/pyproject.toml
+      - hf_cache:/root/.cache/huggingface
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      REDIS_STREAM_NAME: telemetry_log_stream
+      REDIS_STREAM_MAX_LEN: "100000"
+      LOG_LEVEL: INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - aether_net
+
+  # ---------------------------------------------------------------------------
   # Prometheus — Metrics Scraping & Storage
   # ---------------------------------------------------------------------------
   prometheus:
@@ -231,3 +258,6 @@ volumes:
     name: aether_prometheus_data
   grafana_data:
     name: aether_grafana_data
+  hf_cache:
+    name: aether_hf_cache
+

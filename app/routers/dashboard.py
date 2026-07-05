@@ -31,10 +31,69 @@ _POLL_INTERVAL_S: Final[float] = 0.5
 _PENDING_HASH_KEY: Final[str] = "aether:remediation:pending"
 
 
+import httpx
+settings = get_settings()
+
+async def query_prometheus(query: str) -> float:
+    """Helper to query Prometheus HTTP API for aggregated metric values."""
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            r = await client.get(
+                "http://prometheus:9090/api/v1/query",
+                params={"query": query}
+            )
+            if r.status_code == 200:
+                data = r.json()
+                results = data.get("data", {}).get("result", [])
+                if results:
+                    return float(results[0]["value"][1])
+    except Exception as exc:
+        logger.warning("Failed to query Prometheus for query %s | error=%s", query, exc)
+    return 0.0
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
 async def get_dashboard(request: Request) -> HTMLResponse:
     """Render the dashboard UI page view."""
     return templates.TemplateResponse(request, "dashboard.html")
+
+
+@router.get("/api/v1/dashboard/stats")
+async def get_dashboard_stats(redis: RedisStreamClient = Depends(get_redis_client)) -> dict[str, int]:
+    """Fetch current aggregate metrics directly from Redis stream lengths (source of truth)."""
+    total_logs = 0
+    total_anomalies = 0
+    total_remediations = 0
+    pending_approvals = 0
+
+    if redis._client:
+        try:
+            total_logs = await redis._client.xlen(settings.redis_stream_name)
+        except Exception as exc:
+            logger.warning("Failed to query telemetry stream length | error=%s", exc)
+
+        try:
+            total_anomalies = await redis._client.xlen("incident_alerts_stream")
+        except Exception as exc:
+            logger.warning("Failed to query incident stream length | error=%s", exc)
+
+        try:
+            total_remediations = await redis._client.xlen("remediation_history_stream")
+        except Exception as exc:
+            logger.warning("Failed to query remediation history stream length | error=%s", exc)
+
+        try:
+            pending_approvals = len(await redis._client.hkeys(_PENDING_HASH_KEY))
+        except Exception as exc:
+            logger.warning("Failed to query pending approvals from Redis | error=%s", exc)
+
+    return {
+        "total_logs": total_logs,
+        "total_anomalies": total_anomalies,
+        "total_remediations": total_remediations,
+        "pending_approvals": pending_approvals,
+    }
+
 
 
 class ConnectionManager:
