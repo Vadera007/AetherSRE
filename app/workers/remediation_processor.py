@@ -23,6 +23,7 @@ import redis.asyncio as aioredis
 from app.core.config import get_settings
 from app.core.llm_client import AetherRcaReport, RiskLevel
 from app.core.logging_config import configure_logging, get_logger
+from app.core.metrics import remediations_total
 from app.core.remediation_policy import RiskPolicyMatrix, ExecutionType
 from app.core.remediation_executor import LocalActionExecutor
 
@@ -235,6 +236,11 @@ class RemediationProcessorWorker:
                 approximate=True,
             )
 
+            remediations_total.labels(
+                execution_type="AUTO_EXECUTE",
+                status="SUCCESS" if result.is_success else "FAILED",
+            ).inc()
+
         else:
             # ── Human-in-the-loop gate flow ──────────────────────────────────
             logger.warning(
@@ -252,6 +258,11 @@ class RemediationProcessorWorker:
                 "risk_level": risk_level.value,
                 "target_command": action.target_command,
             }
+
+            remediations_total.labels(
+                execution_type="MANUAL_APPROVE",
+                status="PENDING",
+            ).inc()
 
             # Store in Redis pending hash map
             await self._client.hset(

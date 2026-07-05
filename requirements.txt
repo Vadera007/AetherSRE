@@ -38,5 +38,8 @@ huggingface-hub>=0.23.0
 # ── Terminal output (simulator) ───────────────────────────────────────────────
 rich>=13.7.0
 
+# ── Observability — Prometheus metrics export ─────────────────────────────────
+prometheus-client>=0.20.0
+
 # ── Development / testing extras ─────────────────────────────────────────────
 # Install with: pip install -r requirements.txt -r requirements-dev.txt

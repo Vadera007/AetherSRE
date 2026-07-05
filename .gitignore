@@ -50,6 +50,11 @@ redis_data/
 # Logs
 *.log
 logs/
+/tmp/aether_*.log
+
+# Monitoring data (volumes — do not commit)
+monitoring/grafana/data/
+monitoring/prometheus/data/
 
 # Distribution / packaging
 *.tar.gz

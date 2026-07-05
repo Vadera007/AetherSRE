@@ -92,6 +92,7 @@ from app.core.anomaly_detector import AetherAnomalyDetector, get_anomaly_detecto
 from app.core.config import get_settings
 from app.core.context_buffer import LogContextBuffer, get_context_buffer
 from app.core.logging_config import configure_logging, get_logger
+from app.core.metrics import anomalies_detected_total, vector_store_size
 from app.core.normalizer import NormalizationResult, normalize_batch
 from app.core.vector_store import VectorRecord, VectorStore, get_vector_store
 
@@ -661,6 +662,7 @@ class VectorProcessorWorker:
 
         try:
             self._store.add_batch(records)
+            vector_store_size.set(self._store.size)
         except Exception as exc:
             logger.error("Vector store write failed | error=%s", exc, exc_info=True)
             self._stats.messages_failed += batch_size
@@ -679,6 +681,7 @@ class VectorProcessorWorker:
 
             if is_anom:
                 self._stats.anomalies_detected += 1
+                anomalies_detected_total.labels(service_name=entry.service_name).inc()
                 await self._publish_incident(
                     entry=entry,
                     normalised_msg=normalised_texts[i],

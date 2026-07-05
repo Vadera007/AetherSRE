@@ -62,6 +62,7 @@ from app.routers import remediation as remediation_router
 from app.routers import dashboard as dashboard_router
 from app.workers.rca_processor import RcaProcessorWorker
 from app.workers.remediation_processor import RemediationProcessorWorker
+from prometheus_client import make_asgi_app
 
 # ---------------------------------------------------------------------------
 # Bootstrap logging before anything else
@@ -313,6 +314,10 @@ def create_application() -> FastAPI:
     application.include_router(webhooks_router.router)
     application.include_router(remediation_router.router)
     application.include_router(dashboard_router.router)
+
+    # ── Prometheus metrics endpoint ───────────────────────────────────────────
+    metrics_app = make_asgi_app()
+    application.mount("/metrics", metrics_app)
 
     # ── Global exception handler ──────────────────────────────────────────────
     @application.exception_handler(Exception)

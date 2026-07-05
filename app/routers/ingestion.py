@@ -21,6 +21,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.core.logging_config import get_logger
+from app.core.metrics import logs_ingested_total
 from app.core.redis_client import RedisStreamClient, get_redis_client
 from app.models.log_event import IngestResponse, LogEvent
 
@@ -84,6 +85,8 @@ async def ingest_log(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Stream write failed: {exc!s}",
         ) from exc
+
+    logs_ingested_total.labels(service_name=event.service_name, level=event.level.value).inc()
 
     log_fn = logger.warning if event.level.value in {"ERROR", "CRITICAL"} else logger.info
     log_fn(

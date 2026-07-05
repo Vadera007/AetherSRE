@@ -23,6 +23,7 @@ import redis.asyncio as aioredis
 from app.core.config import get_settings
 from app.core.llm_client import OllamaRcaClient
 from app.core.logging_config import configure_logging, get_logger
+from app.core.metrics import rca_duration_seconds, rca_requests_total
 
 logger = get_logger(__name__)
 
@@ -202,9 +203,13 @@ class RcaProcessorWorker:
                 raw_message=raw_message,
                 context_window=context_window,
             )
+            rca_requests_total.labels(service_name=service_name, status="success").inc()
         except Exception as exc:
+            rca_requests_total.labels(service_name=service_name, status="error").inc()
             logger.error("RCA generation failed | id=%s error=%s", stream_id, exc)
             raise
+        finally:
+            rca_duration_seconds.observe(time.monotonic() - t0)
 
         latency = time.monotonic() - t0
         self._stats.total_latency_s += latency
