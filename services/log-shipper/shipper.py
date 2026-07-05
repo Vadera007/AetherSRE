@@ -94,7 +94,7 @@ def main() -> None:
             try:
                 container = docker_client.containers.get(TARGET_CONTAINER)
                 log.info("Streaming logs from container: %s", TARGET_CONTAINER)
-                for raw_line in container.logs(stream=True, follow=True, since=0):
+                for raw_line in container.logs(stream=True, follow=True, since=1):
                     line = raw_line.decode("utf-8", errors="replace").strip()
                     entry = parse_log_line(line)
                     if entry and ship_log(http, entry):

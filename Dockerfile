@@ -19,16 +19,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency manifest first for layer-caching efficiency
-COPY pyproject.toml ./
+COPY requirements.txt ./
 
-# Install Python dependencies via pip (reads [project] table)
+# Install Python dependencies via pip
 RUN pip install --upgrade pip \
-    && pip install "fastapi[standard]>=0.111.0" \
-                   "uvicorn[standard]>=0.29.0" \
-                   "redis>=5.0.4" \
-                   "pydantic>=2.7.0" \
-                   "pydantic-settings>=2.2.1" \
-                   "httpx>=0.27.0"
+    && pip install --no-cache-dir -r requirements.txt
 
 # Copy application source
 COPY app/ ./app/
