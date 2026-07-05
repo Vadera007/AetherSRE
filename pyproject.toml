@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "aethersre"
+version = "1.0.0"
+description = "AetherSRE: Autonomous Log Anomaly & Self-Healing Engine"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "redis>=5.0.4",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.2.1",
+    "httpx>=0.27.0",
+    "numpy>=1.26.4",
+    "sentence-transformers>=3.0.0",
+    "torch>=2.3.0",
+    "transformers>=4.40.0",
+    "tokenizers>=0.19.0",
+    "huggingface-hub>=0.23.0",
+    "scikit-learn>=1.4.0",
+    "rich>=13.7.0",
+]
+
+[project.optional-dependencies]
+simulator = [
+    "httpx>=0.27.0",
+    "rich>=13.7.0",
+]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "simulator*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+select = ["E", "F", "I", "N", "UP", "ANN", "ASYNC", "S", "B", "A", "C4", "RET"]
+ignore = ["ANN101", "ANN102", "S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

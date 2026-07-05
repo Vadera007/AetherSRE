@@ -1,0 +1,42 @@
+# =============================================================================
+# AetherSRE — Pinned dependency manifest
+# Day 2: Adds sentence-transformers, torch (CPU), numpy
+# =============================================================================
+
+# ── FastAPI web framework ─────────────────────────────────────────────────────
+fastapi[standard]>=0.111.0
+uvicorn[standard]>=0.29.0
+
+# ── Data validation ───────────────────────────────────────────────────────────
+pydantic>=2.7.0
+pydantic-settings>=2.2.1
+
+# ── Redis async client ────────────────────────────────────────────────────────
+redis>=5.0.4
+
+# ── HTTP client (used by simulator and tests) ─────────────────────────────────
+httpx>=0.27.0
+
+# ── Numerical computing — vector store backbone ────────────────────────────────
+numpy>=1.26.4
+
+# ── Sentence Transformers — produces 384-dim float32 embeddings ───────────────
+# all-MiniLM-L6-v2 is downloaded on first use (~90 MB) and cached in
+# ~/.cache/huggingface/hub/ (or TRANSFORMERS_CACHE override).
+sentence-transformers>=3.0.0
+
+# ── PyTorch — CPU-only build to keep image size manageable.
+# The `+cpu` index URL ensures we never accidentally pull a CUDA wheel.
+# For GPU acceleration: replace with torch>=2.3.0 and use the CUDA index.
+torch>=2.3.0
+
+# ── Transformers & tokenizer (transitive, pinned for reproducibility) ─────────
+transformers>=4.40.0
+tokenizers>=0.19.0
+huggingface-hub>=0.23.0
+
+# ── Terminal output (simulator) ───────────────────────────────────────────────
+rich>=13.7.0
+
+# ── Development / testing extras ─────────────────────────────────────────────
+# Install with: pip install -r requirements.txt -r requirements-dev.txt

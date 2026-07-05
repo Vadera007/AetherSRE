@@ -1,0 +1,14 @@
+# =============================================================================
+# AetherSRE — Development & Testing Dependencies
+# =============================================================================
+
+pytest>=8.2.0
+pytest-asyncio>=0.23.0
+ruff>=0.4.0
+mypy>=1.10.0
+
+# Test coverage
+pytest-cov>=5.0.0
+
+# Type stubs for numpy
+numpy>=1.26.4

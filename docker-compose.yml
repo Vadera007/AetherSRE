@@ -1,0 +1,233 @@
+version: "3.9"
+
+# =============================================================================
+# AetherSRE: Autonomous Log Anomaly & Self-Healing Engine
+# Full stack: AetherSRE + Real Microservice + Observability
+# =============================================================================
+
+networks:
+  aether_net:
+    driver: bridge
+    name: aether_net
+
+
+services:
+  # ---------------------------------------------------------------------------
+  # Redis — Event Backbone (Redis Streams)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7.2-alpine
+    container_name: aether_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+      --save 60 1
+      --loglevel notice
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - aether_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # FastAPI — AetherSRE Core Engine
+  # ---------------------------------------------------------------------------
+  aether-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aether_api
+    restart: unless-stopped
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app
+      --log-level info
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - ./pyproject.toml:/app/pyproject.toml
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      REDIS_STREAM_NAME: telemetry_log_stream
+      REDIS_STREAM_MAX_LEN: "100000"
+      API_ENV: development
+      LOG_LEVEL: INFO
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.2:1b
+      RCA_CONSUMER_GROUP: rca-processor-group
+      RCA_CONSUMER_NAME: rca-worker-0
+      RCA_INSIGHTS_STREAM_NAME: rca_insights_stream
+      RCA_INSIGHTS_STREAM_MAX_LEN: "10000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - aether_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # Ollama — Localised LLM Inference Service
+  # ---------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: aether_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - aether_net
+
+  # ---------------------------------------------------------------------------
+  # Target App — Real Flask Microservice (e-commerce backend)
+  # Generates genuine production-like log traffic for AetherSRE to monitor
+  # ---------------------------------------------------------------------------
+  target-app:
+    build:
+      context: ./services/target-app
+      dockerfile: Dockerfile
+    container_name: aether_target_app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: "5000"
+    networks:
+      - aether_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Log Shipper — Reads target-app logs and forwards to AetherSRE
+  # ---------------------------------------------------------------------------
+  log-shipper:
+    build:
+      context: ./services/log-shipper
+      dockerfile: Dockerfile
+    container_name: aether_log_shipper
+    restart: unless-stopped
+    environment:
+      AETHER_URL: http://aether-api:8000
+      TARGET_CONTAINER: aether_target_app
+      SHIP_INTERVAL: "0.05"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      target-app:
+        condition: service_healthy
+      aether-api:
+        condition: service_healthy
+    networks:
+      - aether_net
+
+  # ---------------------------------------------------------------------------
+  # Load Driver — Drives realistic HTTP traffic to the target app
+  # ---------------------------------------------------------------------------
+  load-driver:
+    build:
+      context: ./services/load-driver
+      dockerfile: Dockerfile
+    container_name: aether_load_driver
+    restart: unless-stopped
+    environment:
+      TARGET_URL: http://target-app:5000
+      BASE_RPS: "4"
+    depends_on:
+      target-app:
+        condition: service_healthy
+    networks:
+      - aether_net
+
+  # ---------------------------------------------------------------------------
+  # Prometheus — Metrics Scraping & Storage
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: aether_prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--storage.tsdb.retention.time=7d"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - aether-api
+    networks:
+      - aether_net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Grafana — Metrics Visualization & Dashboards
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: aether_grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: aethersre
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/aethersre.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - aether_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+
+volumes:
+  redis_data:
+    name: aether_redis_data
+  ollama_data:
+    name: aether_ollama_data
+  prometheus_data:
+    name: aether_prometheus_data
+  grafana_data:
+    name: aether_grafana_data
