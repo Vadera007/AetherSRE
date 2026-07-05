@@ -4,125 +4,109 @@
 
 ### Autonomous Log Anomaly & Self-Healing Engine
 
-[![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Redis](https://img.shields.io/badge/Redis-Streams-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
-[![Ollama](https://img.shields.io/badge/Ollama-llama3.2-000000?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.ai)
-[![License: MIT](https://img.shields.io/badge/License-MIT-F7CA18?style=for-the-badge)](LICENSE)
+![Python](https://img.shields.io/badge/Python-3.13-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-7.2-DC382D?style=for-the-badge&logo=redis&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-LLaMA3.2-black?style=for-the-badge)
+![Prometheus](https://img.shields.io/badge/Prometheus-2.51-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-10.4-F46800?style=for-the-badge&logo=grafana&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-*Ingest → Detect → Diagnose → Heal. Fully autonomous, sub-5ms, production-grade.*
+**AetherSRE** is an enterprise-grade, event-driven SRE engine that autonomously ingests microservice log telemetry, detects anomalies using ML embeddings, generates AI root-cause analysis via a local LLM, and executes risk-gated self-healing actions — all in real time.
+
+*Built to replace the 3 AM production war room.*
 
 </div>
-
----
-
-## 🔭 Overview
-
-**AetherSRE** is a real-time Site Reliability Engineering (SRE) platform that autonomously monitors microservice logs, detects anomalies using machine learning, performs root-cause analysis with a local LLM, and executes remediation actions — all with a risk-gated approval workflow and a live WebSocket dashboard.
-
-Built for engineering teams that are tired of 3 AM pages for incidents that *could have fixed themselves.* AetherSRE closes the loop between observability and self-healing, replacing reactive on-call firefighting with a fully autonomous, explainable AI system — running entirely **on-premise** with no external API calls.
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                            AetherSRE Pipeline                                   │
-└─────────────────────────────────────────────────────────────────────────────────┘
-
-  Microservice Logs
-  ┌──────────────┐
-  │  Flask App   │──── HTTP POST ──────────────────────────────────────────────┐
-  │  Simulator   │                                                              │
-  └──────────────┘                                                              ▼
-                                                               ┌──────────────────────────┐
-                                                               │   FastAPI Ingestion API  │
-                                                               │   POST /api/v1/logs      │
-                                                               │   • Validation           │
-                                                               │   • Normalization        │
-                                                               │   • Deduplication        │
-                                                               └──────────┬───────────────┘
-                                                                          │
-                                                                          ▼
-                                                               ┌──────────────────────────┐
-                                                               │     Redis Streams        │
-                                                               │   aether:raw-logs        │
-                                                               │   aether:anomalies       │
-                                                               │   aether:rca-results     │
-                                                               │   aether:remediations    │
-                                                               └──────────┬───────────────┘
-                                                                          │
-                              ┌───────────────────────────────────────────┤
-                              │                                           │
-                              ▼                                           ▼
-               ┌──────────────────────────┐               ┌──────────────────────────┐
-               │    Vector Processor      │               │    RCA Processor         │
-               │  • MiniLM-L6-v2          │──anomaly──▶  │  • Ollama (llama3.2:1b)  │
-               │    Embeddings            │               │  • Context Buffering     │
-               │  • Isolation Forest      │               │  • Pattern Matching      │
-               │  • Anomaly Scoring       │               │  • Root Cause Analysis   │
-               └──────────────────────────┘               └──────────┬───────────────┘
-                                                                      │
-                                                                      ▼
-                                                       ┌──────────────────────────────┐
-                                                       │  Remediation Policy Engine   │
-                                                       │  • Risk-Gated Approval       │
-                                                       │  • LOW  → Auto-execute       │
-                                                       │  • MED  → Notify + wait      │
-                                                       │  • HIGH → Escalate           │
-                                                       └──────────┬───────────────────┘
-                                                                  │
-                              ┌───────────────────────────────────┤
-                              │                                   │
-                              ▼                                   ▼
-               ┌──────────────────────────┐       ┌──────────────────────────────┐
-               │   Live Dashboard         │       │   Prometheus + Grafana       │
-               │   WebSocket /ws/telemetry│       │   /metrics                   │
-               │   Real-time Incidents    │       │   Latency, Throughput, Alerts│
-               └──────────────────────────┘       └──────────────────────────────┘
+ ┌────────────────────────────────────────────────────────────────────────────┐
+ │                        AetherSRE Pipeline                                 │
+ │                                                                            │
+ │  ┌──────────────┐   HTTP POST    ┌─────────────────────────────────────┐  │
+ │  │  Real Flask   │──/api/v1/logs─▶│      FastAPI Ingestion API           │  │
+ │  │  Microservice │               │  • Pydantic validation (<1ms)        │  │
+ │  │  (target-app) │               │  • Prometheus counter increment      │  │
+ │  └──────────────┘               └──────────────┬──────────────────────┘  │
+ │  ┌──────────────┐                              │ XADD                     │
+ │  │  Load Driver  │                              ▼                          │
+ │  │  (3 RPS +     │               ┌─────────────────────────────────────┐  │
+ │  │   burst spikes│               │    Redis Stream: telemetry_log_stream│  │
+ │  └──────────────┘               │    (max 100k events, LRU trimmed)    │  │
+ │                                 └──────────────┬──────────────────────┘  │
+ │                                                │ XREADGROUP               │
+ │                                                ▼                          │
+ │                                 ┌─────────────────────────────────────┐  │
+ │                                 │     Vector Processor Worker          │  │
+ │                                 │  • MiniLM-L6-v2 → 384-dim embedding  │  │
+ │                                 │  • Isolation Forest anomaly score    │  │
+ │                                 │  • score > 0.55 → emit to alerts     │  │
+ │                                 └──────────────┬──────────────────────┘  │
+ │                                                │ XADD incident_alerts     │
+ │                                                ▼                          │
+ │                                 ┌─────────────────────────────────────┐  │
+ │                                 │      RCA Processor Worker            │  │
+ │                                 │  • Ollama llama3.2:1b (local LLM)   │  │
+ │                                 │  • Structured root cause + fix       │  │
+ │                                 │  • Risk classification (LOW→CRITICAL)│  │
+ │                                 └──────────────┬──────────────────────┘  │
+ │                                                │ XADD rca_insights        │
+ │                                                ▼                          │
+ │                                 ┌─────────────────────────────────────┐  │
+ │                                 │   Remediation Policy Engine          │  │
+ │                                 │  • LOW/MEDIUM → AUTO_EXECUTE         │  │
+ │                                 │  • HIGH/CRITICAL → Risk Gate (human) │  │
+ │                                 └──────────────┬──────────────────────┘  │
+ │                                                │ WebSocket broadcast      │
+ │                                                ▼                          │
+ │                                 ┌─────────────────────────────────────┐  │
+ │                                 │   Real-time Dashboard (WebSocket)    │  │
+ │                                 │  • Live log console                  │  │
+ │                                 │  • Anomaly diagnostics table         │  │
+ │                                 │  • One-click approve / deny gates    │  │
+ │                                 └─────────────────────────────────────┘  │
+ │                                                │                          │
+ │                                 ┌──────────────▼──────────────────────┐  │
+ │                                 │   GET /metrics → Prometheus scrape   │  │
+ │                                 │   Grafana: 8-panel dashboard         │  │
+ │                                 └─────────────────────────────────────┘  │
+ └────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## ✨ Key Features
 
-- **🔍 Real-Time Anomaly Detection** — Sub-5ms log ingestion with `all-MiniLM-L6-v2` sentence embeddings and Isolation Forest scoring. Detects statistical outliers in high-dimensional semantic space.
-
-- **🧠 LLM-Powered Root Cause Analysis** — Local Ollama inference (no external API calls) using `llama3.2:1b` generates human-readable RCA reports with contributing factors and confidence scores.
-
-- **🛡️ Risk-Gated Remediation** — Three-tier approval workflow (LOW/MEDIUM/HIGH risk) ensures automated actions only execute when confidence thresholds are met. Full audit trail.
-
-- **⚡ Redis Streams Backbone** — Decoupled, persistent event streaming with consumer groups. Survives restarts, enables horizontal scaling, and provides replay capability.
-
-- **📡 Live WebSocket Dashboard** — Real-time telemetry pushed to browser clients. Incidents, anomaly scores, and remediation statuses update without polling.
-
-- **📊 Full Observability Stack** — Prometheus metrics endpoint + pre-built Grafana dashboards for ingestion latency, anomaly rate, RCA queue depth, and remediation throughput.
-
-- **🎯 Realistic Log Simulation** — Production-grade log simulator generates correlated, scenario-based anomalies (cascading failures, memory leaks, DDoS patterns) for testing.
-
-- **🔒 100% On-Premise** — No external LLM API calls. All inference runs locally via Ollama. Safe for air-gapped and compliance-sensitive environments.
+- **🔍 Real-Time Anomaly Detection** — Sentence Transformers (`all-MiniLM-L6-v2`) embed every log line into a 384-dimensional vector; Isolation Forest scores each against the learned baseline. Sub-5ms classification latency.
+- **🧠 AI Root Cause Analysis** — Anomalous events are sent to a locally-running Ollama LLM (`llama3.2:1b`) with structured context. Returns root cause + suggested fix in JSON.
+- **🛡️ Risk-Gated Remediation** — Policy engine classifies severity and either auto-executes LOW/MEDIUM fixes or holds HIGH/CRITICAL for one-click human approval.
+- **📡 Event-Driven Architecture** — Fully decoupled via Redis Streams. Each worker scales independently. No coupling between ingestion latency and ML processing.
+- **🖥️ Live WebSocket Dashboard** — Real-time log terminal, anomaly diagnostics table, and approval queue — all pushed via WebSocket, no polling.
+- **📊 Prometheus + Grafana** — Six custom metrics exposed at `/metrics`, scraped by Prometheus, visualised in a pre-built Grafana dashboard with 8 panels.
+- **🏭 Real Microservice Traffic** — A real Flask e-commerce backend (`target-app`) + load driver generates genuine production-like log traffic with realistic error rates.
+- **🌓 Dark / Light Mode** — Dashboard theme toggle with `localStorage` persistence.
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Component | Technology | Purpose |
-|---|---|---|
-| **API Server** | FastAPI + Uvicorn | Log ingestion, REST API, WebSocket gateway |
-| **Event Backbone** | Redis Streams | Decoupled async pipeline, consumer groups |
-| **Embeddings** | `sentence-transformers/all-MiniLM-L6-v2` | Semantic log vectorization |
-| **Anomaly Detection** | Isolation Forest (scikit-learn) | Unsupervised outlier detection |
-| **Vector Store** | In-memory + NumPy | Rolling embedding window for context |
-| **LLM / RCA** | Ollama → `llama3.2:1b` | Root Cause Analysis generation |
-| **Log Normalization** | Custom regex pipeline | Multi-format log parsing |
-| **Remediation Engine** | Custom policy engine | Risk-gated auto-healing |
-| **Dashboard** | HTML/CSS/JS + WebSocket | Real-time incident visualization |
-| **Metrics** | Prometheus client | Latency, throughput, alert counters |
-| **Visualization** | Grafana | Pre-built SRE dashboards |
-| **Simulation** | Flask + Python | Realistic target microservice + log gen |
-| **Containerization** | Docker Compose | One-command full-stack deployment |
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **API** | FastAPI + Uvicorn | Async log ingestion, WebSocket broadcaster, REST endpoints |
+| **Event Bus** | Redis 7.2 Streams | Decoupled pipeline: telemetry → alerts → insights → remediation |
+| **Embeddings** | `all-MiniLM-L6-v2` | 384-dim semantic log vectors (sentence-transformers) |
+| **Anomaly Detection** | Isolation Forest (sklearn) | Unsupervised, trains on first 128 vectors |
+| **LLM / RCA** | Ollama + LLaMA 3.2:1b | Local, private, no API keys required |
+| **Metrics** | prometheus-client | `/metrics` endpoint with 6 custom counters/histograms |
+| **Dashboards** | Grafana 10.4 | Pre-built 8-panel dashboard auto-provisioned |
+| **Observability** | Prometheus 2.51 | 10s scrape interval, 7-day retention |
+| **Target App** | Flask 3.x | Real e-commerce microservice with structured JSON logging |
+| **Containerisation** | Docker Compose | Full 8-service stack, single command startup |
+| **Validation** | Pydantic v2 | Strict log event schema validation |
 
 ---
 
@@ -130,262 +114,195 @@ Built for engineering teams that are tired of 3 AM pages for incidents that *cou
 
 ```
 AetherSRE/
-├── app/                          # Core application
-│   ├── main.py                   # FastAPI app, lifespan, Prometheus metrics
-│   ├── core/                     # Shared business logic
-│   │   ├── anomaly_detector.py   # Isolation Forest wrapper
-│   │   ├── config.py             # Pydantic Settings (env-driven)
-│   │   ├── context_buffer.py     # Rolling context window for LLM
-│   │   ├── llm_client.py         # Ollama async HTTP client
-│   │   ├── logging_config.py     # Structured JSON logging
-│   │   ├── normalizer.py         # Multi-format log parser / normalizer
-│   │   ├── redis_client.py       # Redis Streams helpers (xadd, xread, xack)
-│   │   ├── remediation_executor.py # Action execution layer
-│   │   ├── remediation_policy.py # Risk-tier decision logic
-│   │   └── vector_store.py       # Embedding storage + similarity search
+├── app/
+│   ├── core/
+│   │   ├── anomaly_detector.py    # Isolation Forest wrapper + singleton
+│   │   ├── config.py              # Pydantic-settings config
+│   │   ├── llm_client.py          # Ollama async HTTP client
+│   │   ├── metrics.py             # Prometheus metric registry
+│   │   ├── redis_client.py        # Async Redis connection pool
+│   │   ├── remediation_executor.py
+│   │   ├── remediation_policy.py  # Risk classification engine
+│   │   └── vector_store.py        # In-memory NumPy vector store
+│   ├── routers/
+│   │   ├── ingestion.py           # POST /api/v1/logs
+│   │   ├── health.py              # GET /health
+│   │   ├── dashboard.py           # GET /dashboard + WS /ws/telemetry
+│   │   ├── incidents.py
+│   │   ├── rca.py
+│   │   └── remediation.py
+│   ├── workers/
+│   │   ├── vector_processor.py    # Embedding + anomaly detection worker
+│   │   ├── rca_processor.py       # LLM RCA worker
+│   │   └── remediation_processor.py
 │   ├── models/
-│   │   └── log_event.py          # Pydantic data models
-│   ├── routers/                  # FastAPI route handlers
-│   │   ├── dashboard.py          # Dashboard HTML + WebSocket
-│   │   ├── health.py             # GET /health
-│   │   ├── incidents.py          # GET /api/v1/incidents
-│   │   ├── ingestion.py          # POST /api/v1/logs
-│   │   ├── rca.py                # GET /api/v1/rca/{incident_id}
-│   │   ├── remediation.py        # GET/POST /api/v1/remediation
-│   │   └── webhooks.py           # Webhook delivery
-│   ├── templates/                # Jinja2 HTML templates
-│   └── workers/                  # Background stream consumers
-│       ├── vector_processor.py   # Embedding + anomaly detection worker
-│       ├── rca_processor.py      # LLM RCA generation worker
-│       └── remediation_processor.py # Remediation execution worker
-├── simulator/                    # Log generation & load testing
-│   ├── log_generator.py          # Scenario-based anomaly simulator
-│   └── load_test.py              # Throughput benchmark
-├── scripts/                      # Dev & demo utilities
-│   ├── run_worker.py             # Worker launcher helper
-│   ├── record_demo.py            # Demo session recorder
-│   └── record_and_screenshot.py  # Screenshot capture tool
-├── docs/                         # Documentation
-│   ├── architecture.md           # Full architecture deep-dive
-│   └── CHANGELOG.md              # Detailed change history
-│   └── assets/                   # Screenshots & diagrams
-├── monitoring/                   # Observability stack
-│   ├── prometheus/               # Prometheus config
-│   └── grafana/                  # Grafana dashboards & datasources
-├── tests/                        # Test suite
-├── Dockerfile                    # AetherSRE image definition
-├── docker-compose.yml            # Full stack orchestration
-├── pyproject.toml                # Project metadata & tool config
-├── requirements.txt              # Production dependencies
-├── requirements-dev.txt          # Development dependencies
-├── .env.example                  # Environment variable template
-└── README.md                     # This file
+│   │   └── log_event.py           # Pydantic log event schema
+│   ├── templates/
+│   │   └── dashboard.html         # WebSocket dashboard UI
+│   └── main.py                    # FastAPI app + lifespan
+├── services/
+│   ├── target-app/                # Real Flask e-commerce microservice
+│   ├── log-shipper/               # Docker SDK → AetherSRE forwarder
+│   └── load-driver/               # Async load generator (3 RPS + bursts)
+├── simulator/
+│   └── log_generator.py           # Standalone fake log simulator
+├── monitoring/
+│   ├── prometheus.yml             # Prometheus scrape config
+│   └── grafana/
+│       ├── provisioning/          # Auto-provisioned datasource + dashboard
+│       └── dashboards/
+│           └── aethersre.json     # Pre-built 8-panel Grafana dashboard
+├── tests/                         # pytest test suite
+├── docs/
+│   └── architecture.md            # Deep-dive architecture docs
+├── docker-compose.yml             # Full 8-service stack
+├── Dockerfile
+├── requirements.txt
+└── .env.example
 ```
 
 ---
 
 ## 🚀 Quick Start
 
-### Option 1: Docker Compose (Recommended)
-
-> **Prerequisites:** Docker Desktop, Docker Compose v2, Ollama installed locally.
+### Option A: Full Docker Stack (Recommended)
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/Vadera007/AetherSRE.git
 cd AetherSRE
 
-# 2. Copy environment file and configure
+# 2. Copy environment file
 cp .env.example .env
-# Edit .env as needed (defaults work for local dev)
 
-# 3. Pull the LLM model (one-time, ~600MB)
-ollama pull llama3.2:1b
+# 3. Start all 8 services
+docker compose up -d --build
 
-# 4. Launch the full stack
-docker compose up --build -d
+# 4. Pull the LLM model (one-time, ~600MB)
+docker exec aether_ollama ollama pull llama3.2:1b
 
-# 5. Open the dashboard
+# 5. Access the dashboard
 open http://localhost:8000/dashboard
 ```
 
 **Services started:**
-| Service | Port | URL |
-|---|---|---|
-| AetherSRE API | 8000 | http://localhost:8000 |
-| Redis | 6379 | redis://localhost:6379 |
-| Prometheus | 9090 | http://localhost:9090 |
-| Grafana | 3000 | http://localhost:3000 |
-| Target Flask App | 5001 | http://localhost:5001 |
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| AetherSRE Dashboard | http://localhost:8000/dashboard | — |
+| AetherSRE API | http://localhost:8000 | — |
+| Prometheus | http://localhost:9090 | — |
+| Grafana | http://localhost:3000 | admin / aethersre |
+| Ollama | http://localhost:11434 | — |
+| Target App | http://localhost:5000 | — |
 
----
-
-### Option 2: Local Dev Setup
-
-> **Prerequisites:** Python 3.13, Redis (running), Ollama (running).
+### Option B: Local Development
 
 ```bash
-# 1. Clone & enter directory
+# 1. Clone and set up Python environment
 git clone https://github.com/Vadera007/AetherSRE.git
 cd AetherSRE
-
-# 2. Create virtual environment
-python3.13 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-
-# 3. Install dependencies
 pip install -r requirements.txt
-pip install -r requirements-dev.txt
 
-# 4. Configure environment
-cp .env.example .env
+# 2. Start infrastructure (Redis + Ollama)
+docker compose up redis ollama -d
 
-# 5. Start Redis (if not running)
-redis-server --daemonize yes
+# 3. Pull the LLM
+docker exec aether_ollama ollama pull llama3.2:1b
 
-# 6. Pull Ollama model
-ollama pull llama3.2:1b
-
-# 7. Launch AetherSRE
+# 4. Start the API server
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-# 8. In a new terminal — start the log simulator
-python simulator/log_generator.py
+# 5. In a separate terminal — start vector processor worker
+python -m app.workers.vector_processor
 
-# 9. Open dashboard
-open http://localhost:8000/dashboard
+# 6. In a separate terminal — start log simulator
+python -m simulator.log_generator --rate 4
 ```
-
----
-
-## ⚙️ Environment Variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `REDIS_URL` | `redis://localhost:6379` | Redis connection string |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama API endpoint |
-| `OLLAMA_MODEL` | `llama3.2:1b` | LLM model for RCA |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Sentence transformer model |
-| `ANOMALY_THRESHOLD` | `0.7` | Isolation Forest score threshold |
-| `RISK_AUTO_EXECUTE_MAX` | `LOW` | Max risk tier for auto-remediation |
-| `LOG_LEVEL` | `INFO` | Application log level |
-| `CORS_ORIGINS` | `*` | Allowed CORS origins |
-| `PROMETHEUS_ENABLED` | `true` | Enable /metrics endpoint |
-| `WEBHOOK_SECRET` | *(empty)* | HMAC secret for webhook auth |
-
-Copy `.env.example` to `.env` and adjust values for your environment.
 
 ---
 
 ## 📡 API Endpoints
 
 | Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/health` | System health check (Redis, Ollama, workers) |
-| `POST` | `/api/v1/logs` | Ingest log event(s) into the pipeline |
-| `GET` | `/api/v1/incidents` | List detected incidents with filters |
-| `GET` | `/api/v1/incidents/{id}` | Get incident detail |
-| `GET` | `/api/v1/rca/{incident_id}` | Fetch RCA report for an incident |
-| `GET` | `/api/v1/remediation` | List remediation actions |
-| `POST` | `/api/v1/remediation/{id}/approve` | Manually approve a MEDIUM/HIGH risk action |
-| `POST` | `/api/v1/webhooks` | Register a webhook destination |
-| `GET` | `/dashboard` | Live HTML dashboard |
-| `GET` | `/ws/telemetry` | WebSocket stream (incidents, metrics, alerts) |
+|--------|----------|-------------|
+| `GET` | `/health` | Service health check with Redis status |
+| `POST` | `/api/v1/logs` | Ingest a structured log event |
+| `GET` | `/api/v1/incidents/recent` | Recent anomaly incidents |
+| `POST` | `/api/v1/remediation/approve` | Approve a pending risk-gated remediation |
+| `POST` | `/api/v1/remediation/deny` | Deny a pending risk-gated remediation |
+| `GET` | `/dashboard` | Live WebSocket dashboard UI |
+| `WS` | `/ws/telemetry` | Real-time WebSocket event stream |
 | `GET` | `/metrics` | Prometheus metrics scrape endpoint |
-| `GET` | `/docs` | Auto-generated OpenAPI docs (Swagger UI) |
-| `GET` | `/redoc` | ReDoc API documentation |
-
-### Example: Ingest a Log Event
-
-```bash
-curl -X POST http://localhost:8000/api/v1/logs \
-  -H "Content-Type: application/json" \
-  -d '{
-    "service": "payment-gateway",
-    "level": "ERROR",
-    "message": "Connection timeout to database after 30000ms — pool exhausted",
-    "timestamp": "2026-07-05T18:30:00Z",
-    "metadata": {
-      "host": "pay-gw-03",
-      "region": "us-east-1"
-    }
-  }'
-```
-
-```json
-{
-  "status": "accepted",
-  "log_id": "lg_01j3...",
-  "ingestion_latency_ms": 1.2,
-  "stream": "aether:raw-logs"
-}
-```
 
 ---
 
-## 📊 Performance Metrics
+## 📊 Prometheus Metrics
 
-| Metric | Value | Notes |
-|---|---|---|
-| **Log ingestion latency** | < 5ms (p99) | Redis XADD + validation |
-| **Embedding throughput** | ~200 logs/sec | MiniLM-L6-v2 on CPU |
-| **Anomaly detection latency** | < 2ms | Isolation Forest inference |
-| **RCA generation time** | 3–8s | llama3.2:1b via Ollama |
-| **WebSocket push latency** | < 50ms | Redis → WS broadcast |
-| **Dashboard refresh** | Real-time | Push-based, no polling |
-| **Memory footprint** | ~800MB | Incl. model weights |
-| **Concurrent connections** | 100+ | Async FastAPI + Starlette |
+| Metric | Type | Description |
+|--------|------|-------------|
+| `aether_logs_ingested_total` | Counter | Logs accepted, labelled by `service_name` + `level` |
+| `aether_anomalies_detected_total` | Counter | Anomalies flagged, labelled by `service_name` |
+| `aether_vector_store_size` | Gauge | Current embeddings in memory |
+| `aether_rca_requests_total` | Counter | LLM RCA calls, labelled by `status` |
+| `aether_rca_duration_seconds` | Histogram | End-to-end LLM latency (p50/p95/p99) |
+| `aether_remediations_total` | Counter | Remediations by `execution_type` + `status` |
 
 ---
 
-## 🖼️ Screenshots
+## ⚙️ Environment Variables
 
-| View | Description |
-|---|---|
-| ![Dashboard](docs/assets/) | Live incident dashboard with real-time anomaly stream |
-| ![RCA Report](docs/assets/) | LLM-generated root cause analysis with remediation plan |
-| ![Grafana](docs/assets/) | Prometheus metrics in Grafana — ingestion & anomaly rates |
-
-> Screenshots available in [`docs/assets/`](docs/assets/).
-
----
-
-## 🧪 Running Tests
-
-```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
-
-# Run test suite
-pytest tests/ -v
-
-# Run with coverage
-pytest tests/ --cov=app --cov-report=html
-open htmlcov/index.html
-```
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REDIS_HOST` | `localhost` | Redis host |
+| `REDIS_PORT` | `6379` | Redis port |
+| `REDIS_STREAM_NAME` | `telemetry_log_stream` | Ingestion stream name |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama LLM endpoint |
+| `OLLAMA_MODEL` | `llama3.2:1b` | LLM model name |
+| `API_ENV` | `development` | Environment label |
+| `LOG_LEVEL` | `INFO` | Application log level |
+| `ANOMALY_THRESHOLD` | `0.55` | Isolation Forest score threshold |
 
 ---
 
-## 🤝 Contributing
+## 📈 Performance Characteristics
 
-1. Fork the repository
-2. Create your feature branch: `git checkout -b feat/your-feature`
-3. Commit with conventional commits: `git commit -m "feat: add xyz"`
-4. Push: `git push origin feat/your-feature`
-5. Open a Pull Request
+| Metric | Value |
+|--------|-------|
+| Log ingestion latency | < 5ms (p99) |
+| Vector embedding throughput | ~32 logs/batch |
+| Anomaly detection latency | < 2ms post-training |
+| LLM RCA latency (llama3.2:1b) | 5–30s (CPU inference) |
+| Redis stream backlog | Up to 100,000 events |
+| WebSocket broadcast delay | < 500ms (poll interval) |
+| Baseline training threshold | 128 vectors |
+
+---
+
+## 🔭 Roadmap
+
+- [ ] GPU-accelerated Ollama inference (CUDA support)
+- [ ] Multi-tenant support with per-service anomaly baselines
+- [ ] PagerDuty / Slack webhook integration
+- [ ] Kubernetes Helm chart
+- [ ] Historical anomaly trend analysis
+- [ ] Auto-scaling remediation via Kubernetes API
+
+---
+
+## 👤 Author
+
+**Akshat Vadera** — [GitHub](https://github.com/Vadera007) · [LinkedIn](https://linkedin.com/in/akshatvadera)
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
 
 ---
 
 <div align="center">
-
-Built with ⚡ by [Akshat Vadera](https://github.com/Vadera007)
-
-*Turning reactive SRE into autonomous self-healing.*
-
+<i>Built with ⚡ FastAPI · 🔴 Redis · 🧠 Ollama · 📊 Prometheus · 🐳 Docker</i>
 </div>
