@@ -881,6 +881,14 @@ async def _async_main(args: argparse.Namespace) -> None:
     settings = get_settings()
     configure_logging(level=settings.log_level)
 
+    # Start Prometheus HTTP server to expose metrics
+    from prometheus_client import start_http_server
+    try:
+        start_http_server(8000)
+        logger.info("Prometheus metrics server started on port 8000")
+    except Exception as exc:
+        logger.warning("Failed to start Prometheus metrics server | error=%s", exc)
+
     logger.info("=" * 64)
     logger.info("  AetherSRE Vector Processor & Anomaly Detection Worker")
     logger.info("  Redis  : %s:%d/%d", settings.redis_host, settings.redis_port, settings.redis_db)

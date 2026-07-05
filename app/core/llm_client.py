@@ -128,7 +128,7 @@ CRITICAL REQUIREMENT: Output raw parseable JSON only. Do not wrap in markdown co
 
         for attempt in range(1, max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=45.0) as client:
+                async with httpx.AsyncClient(timeout=180.0) as client:
                     logger.info(
                         "Sending RCA request to Ollama | service=%s model=%s attempt=%d/%d",
                         service_name,

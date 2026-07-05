@@ -37,7 +37,7 @@
       "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background"},
       "title": "Vector Store Size",
       "type": "stat",
-      "targets": [{"expr": "aether_vector_store_size", "legendFormat": "Vectors", "refId": "A"}]
+      "targets": [{"expr": "max(aether_vector_store_size)", "legendFormat": "Vectors", "refId": "A"}]
     },
     {
       "datasource": {"type": "prometheus", "uid": "${datasource}"},
@@ -81,9 +81,9 @@
       "title": "RCA LLM Latency",
       "type": "timeseries",
       "targets": [
-        {"expr": "histogram_quantile(0.50, rate(aether_rca_duration_seconds_bucket[5m]))", "legendFormat": "p50", "refId": "A"},
-        {"expr": "histogram_quantile(0.95, rate(aether_rca_duration_seconds_bucket[5m]))", "legendFormat": "p95", "refId": "B"},
-        {"expr": "histogram_quantile(0.99, rate(aether_rca_duration_seconds_bucket[5m]))", "legendFormat": "p99", "refId": "C"}
+        {"expr": "histogram_quantile(0.50, sum(rate(aether_rca_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A"},
+        {"expr": "histogram_quantile(0.95, sum(rate(aether_rca_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B"},
+        {"expr": "histogram_quantile(0.99, sum(rate(aether_rca_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p99", "refId": "C"}
       ]
     },
     {
