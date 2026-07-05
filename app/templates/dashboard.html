@@ -512,7 +512,54 @@
             };
         }
 
-        async function fetchInitialStats() {
+        async function fetchInitialData() {
+            try {
+                // 1. Fetch counters
+                const statsResponse = await fetch('/api/v1/dashboard/stats');
+                if (statsResponse.ok) {
+                    const data = await statsResponse.json();
+                    counters.logs = data.total_logs;
+                    counters.anomalies = data.total_anomalies;
+                    counters.fixes = data.total_remediations;
+                    counters.pending = data.pending_approvals;
+                    updateMetrics();
+                }
+
+                // 2. Fetch pending approvals list
+                const pendingResponse = await fetch('/api/v1/dashboard/pending');
+                if (pendingResponse.ok) {
+                    const pendingList = await pendingResponse.json();
+                    pendingApprovalsMap.clear();
+                    pendingList.forEach(item => {
+                        pendingApprovalsMap.set(item.incident_id, item);
+                    });
+                    counters.pending = pendingApprovalsMap.size;
+                    updateMetrics();
+                    renderPendingApprovals();
+                }
+
+                // 3. Fetch recent RCA reports
+                const rcaResponse = await fetch('/api/v1/dashboard/rca');
+                if (rcaResponse.ok) {
+                    const rcaList = await rcaResponse.json();
+                    rcaMap.clear();
+                    // Load in reverse chronological order for top-to-bottom rendering
+                    rcaList.reverse().forEach(item => {
+                        rcaMap.set(item.incident_id, item);
+                    });
+                    renderRcaTable();
+                }
+            } catch (exc) {
+                console.error("Failed to fetch initial dashboard data:", exc);
+            }
+        }
+
+        // Initialize connection and data sync
+        fetchInitialData();
+        connectWebSocket();
+
+        // Keep metrics card numbers synced with Redis stats
+        setInterval(async () => {
             try {
                 const response = await fetch('/api/v1/dashboard/stats');
                 if (response.ok) {
@@ -520,20 +567,11 @@
                     counters.logs = data.total_logs;
                     counters.anomalies = data.total_anomalies;
                     counters.fixes = data.total_remediations;
-                    counters.pending = data.pending_approvals;
+                    // Note: pending count is managed by approvals list state to avoid race conditions
                     updateMetrics();
                 }
-            } catch (exc) {
-                console.error("Failed to fetch initial stats:", exc);
-            }
-        }
-
-        // Initialize connection and metrics
-        fetchInitialStats();
-        connectWebSocket();
-
-        // Keep metrics card numbers synced with Prometheus/Redis stats
-        setInterval(fetchInitialStats, 5000);
+            } catch (e) {}
+        }, 5000);
 
         // Theme toggle logic
         const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');

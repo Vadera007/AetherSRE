@@ -95,6 +95,55 @@ async def get_dashboard_stats(redis: RedisStreamClient = Depends(get_redis_clien
     }
 
 
+@router.get("/api/v1/dashboard/pending")
+async def get_pending_remediations(redis: RedisStreamClient = Depends(get_redis_client)) -> list[dict[str, Any]]:
+    """Get all current pending gated remediations waiting for operator approval."""
+    results = []
+    if redis._client:
+        try:
+            pending_hashes = await redis._client.hgetall(_PENDING_HASH_KEY)
+            for key_id, raw_val in pending_hashes.items():
+                try:
+                    data = json.loads(raw_val)
+                    # Key in redis is the incident_id; make sure it's in the payload
+                    if isinstance(data, dict):
+                        if "incident_id" not in data:
+                            data["incident_id"] = key_id
+                        results.append(data)
+                except Exception:
+                    pass
+        except Exception as exc:
+            logger.warning("Failed to fetch pending remediations | error=%s", exc)
+    return results
+
+
+@router.get("/api/v1/dashboard/rca")
+async def get_recent_rca_reports(redis: RedisStreamClient = Depends(get_redis_client)) -> list[dict[str, Any]]:
+    """Get the last 50 generated Root Cause Analysis reports."""
+    results = []
+    if redis._client:
+        try:
+            entries = await redis._client.xrevrange(
+                settings.rca_insights_stream_name,
+                max="+",
+                min="-",
+                count=50,
+            )
+            for msg_id, fields in entries:
+                results.append({
+                    "incident_id": fields.get("incident_id", msg_id),
+                    "service_name": fields.get("service_name", ""),
+                    "raw_message": fields.get("raw_message", ""),
+                    "anomaly_score": float(fields.get("anomaly_score", "0.0")),
+                    "root_cause": fields.get("root_cause", ""),
+                    "suggested_fix": fields.get("suggested_fix", ""),
+                    "risk_level": fields.get("risk_level", "LOW"),
+                })
+        except Exception as exc:
+            logger.warning("Failed to fetch recent RCA reports | error=%s", exc)
+    return results
+
+
 
 class ConnectionManager:
     """Manages active WebSockets connections and broadcasts events."""
