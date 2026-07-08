@@ -13,7 +13,7 @@
 ![Grafana](https://img.shields.io/badge/Grafana-10.4-F46800?style=for-the-badge&logo=grafana&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-**AetherSRE** is an enterprise-grade, event-driven SRE engine that autonomously ingests microservice log telemetry, detects anomalies using ML embeddings, generates AI root-cause analysis via a local LLM, and executes risk-gated self-healing actions — all in real time.
+**AetherSRE** is an enterprise-grade, event-driven SRE engine that autonomously ingests microservice log telemetry, detects anomalies using ML embeddings, generates AI root-cause analysis via a local LLM, and executes risk-gated self-healing actions, all in real time.
 
 *Built to replace the 3 AM production war room.*
 
